@@ -1,0 +1,165 @@
+{
+	"info": {
+		"_postman_id": "d88b5d52-7064-4229-b5be-9832d6197028",
+		"name": "PassVault API",
+		"description": "Collection for signup, login, and vault operations",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json",
+		"_exporter_id": "36613099"
+	},
+	"item": [
+		{
+			"name": "1) Signup",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"email\": \"me@example.com\",\n  \"master_password\": \"CorrectHorseBatteryStaple\"\n}"
+				},
+				"url": "http://127.0.0.1:5000/auth/signup"
+			},
+			"response": []
+		},
+		{
+			"name": "1b) Verify (paste token)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:5000/auth/verify?token={{verify_token}}",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "5000",
+					"path": [
+						"auth",
+						"verify"
+					],
+					"query": [
+						{
+							"key": "token",
+							"value": "{{verify_token}}"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "2) Login",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"email\": \"me@example.com\",\n  \"master_password\": \"CorrectHorseBatteryStaple\"\n}"
+				},
+				"url": "http://127.0.0.1:5000/auth/login"
+			},
+			"response": []
+		},
+		{
+			"name": "3) Register Credential",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"app_name\": \"GitHub3\",\n  \"app_login_url\": \"https://github.com/login\",\n  \"password\": \"ghp_secret\",\n  \"master_password\":\"CorrectHorseBatteryStaple\"\n}"
+				},
+				"url": "http://127.0.0.1:5000/vault/register"
+			},
+			"response": []
+		},
+		{
+			"name": "4) List Credentials",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}",
+						"type": "text"
+					}
+				],
+				"url": "http://127.0.0.1:5000/vault/list"
+			},
+			"response": []
+		},
+		{
+			"name": "5) Detail Credential",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjMzU2MGQ4OS1lYzE1LTRiZjItYjM0OS04ZjZmYzdkMTM2NGMiLCJpYXQiOjE3NjA0MTU1NTMsImV4cCI6MTc2NjQxNTU1M30.9cigtmEgWbgA3Z63Z7om2LnmZfiHmvItupGlHmRTDgw",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"master_password\":\"CorrectHorseBatteryStaple\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://127.0.0.1:5000/vault/detail/{{entry_id}}"
+			},
+			"response": []
+		},
+		{
+			"name": "6) UpdateCredential",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"app_name\": \"GitHubEdit\",\r\n    \"master_password\":\"CorrectHorseBatteryStaple\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://127.0.0.1:5000/vault/update/{{entry_id}}"
+			},
+			"response": []
+		}
+	]
+}
