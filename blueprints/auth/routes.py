@@ -7,6 +7,7 @@ from extensions import db
 from models import User, EmailVerificationToken
 from crypto import hash_for_auth, verify_auth, derive_vault_key, new_email_token
 from blueprints.auth import bp
+from utils.jwt_config import create_access_token
 
 def _normalize_email(e: str) -> str:
     return (e or "").strip().lower()
@@ -78,8 +79,15 @@ def login():
     session["vault_key_b64"] = base64.b64encode(vkey).decode("ascii")
 
     login_user(user, remember=False, duration=None)
-    session.permanent = True
-    return jsonify({"message": "login ok"})
+    # session.permanent = True # this is in case we want to keep the session on by cookies, better not to do it in this case
+    
+    token = create_access_token(user.id)
+
+    return jsonify({
+        "access_token": token,
+        "token_type": "Bearer",
+        "user": {"id": str(user.id), "email": user.email}
+    })
 
 @bp.post("/logout")
 @login_required
