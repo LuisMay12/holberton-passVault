@@ -5,5 +5,5 @@ from flask_session import Session
 
 db = SQLAlchemy()
 migrate = Migrate()
-login_manager = LoginManager()
+# login_manager = LoginManager()
 server_session = Session()

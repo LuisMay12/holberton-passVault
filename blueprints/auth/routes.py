@@ -42,6 +42,7 @@ def signup():
     verify_url = f"/auth/verify?token={token_str}"
     return jsonify({"message": "signup ok, verify email", "verify_url_dev": verify_url}), 201
 
+
 @bp.get("/verify")
 def verify():
     token_str = request.args.get("token", "")
@@ -56,6 +57,7 @@ def verify():
     db.session.delete(tok)
     db.session.commit()
     return jsonify({"message": "email verified"})
+
 
 @bp.post("/login")
 def login():
@@ -78,7 +80,7 @@ def login():
     vkey = derive_vault_key(master_password, user.kdf_salt)
     session["vault_key_b64"] = base64.b64encode(vkey).decode("ascii")
 
-    login_user(user, remember=False, duration=None)
+    # login_user(user, remember=False, duration=None)
     # session.permanent = True # this is in case we want to keep the session on by cookies, better not to do it in this case
     
     token = create_access_token(user.id)
@@ -89,9 +91,30 @@ def login():
         "user": {"id": str(user.id), "email": user.email}
     })
 
-@bp.post("/logout")
-@login_required
-def logout():
-    session.pop("vault_key_b64", None)
-    logout_user()
-    return jsonify({"message": "logged out"})
+# @bp.post("/logout")
+# @login_required
+# def logout():
+#     """
+#     Log out the current user and clear session data.
+
+#     ---
+#     **Endpoint:** POST /auth/logout  
+#     **Description:**  
+#     Logs out the current user and clears any stored encryption keys or session info.
+
+#     **Headers:**
+#     - Requires a valid Flask session cookie (used only for web session auth).
+
+#     **Responses:**
+#     - 200 OK  
+#       ```json
+#       {"message": "logged out"}
+#       ```
+
+#     **Notes:**
+#     - This endpoint is only relevant when using session-based authentication.  
+#       For JWT-based API clients, logging out simply means deleting the stored token client-side.
+#     """
+#     session.pop("vault_key_b64", None)
+#     logout_user()
+#     return jsonify({"message": "logged out"})

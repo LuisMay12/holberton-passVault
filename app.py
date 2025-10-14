@@ -2,8 +2,9 @@ import os
 from flask import Flask
 from dotenv import load_dotenv
 from config import DevConfig, ProdConfig
-from extensions import db, migrate, login_manager, server_session
+from extensions import db, migrate, server_session # login_manager, 
 from models import User
+from flasgger import Swagger
 
 def create_app():
     load_dotenv()
@@ -13,14 +14,15 @@ def create_app():
     # Init extensions
     db.init_app(app)
     migrate.init_app(app, db)
-    login_manager.init_app(app)
+    # login_manager.init_app(app)
     server_session.init_app(app)
 
-    @login_manager.user_loader
-    def load_user(user_id):
-        return User.query.get(user_id)
+    # For session auth
+    # @login_manager.user_loader
+    # def load_user(user_id):
+    #     return User.query.get(user_id)
 
-    login_manager.login_view = "auth.login"
+    # login_manager.login_view = "auth.login"
 
     @app.after_request
     def set_headers(resp):

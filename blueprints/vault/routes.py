@@ -1,13 +1,11 @@
-import base64
-from flask import request, jsonify, abort, session
-from flask_login import login_required, current_user
+from flask import request, jsonify
 from extensions import db
 from models import VaultEntry
 from crypto import encrypt_pwd, decrypt_pwd
 from blueprints.vault import bp
-from utils.jwt_config import decode_token, jwt_required
+from utils.jwt_config import jwt_required
 from crypto import derive_vault_key
-
+from blueprints.vault.schemes import RegisterCredentialBody, VaultListResponse, RegisterCredentialBody
 # def _get_vault_key():
 #     b64 = session.get("vault_key_b64")
 #     if not b64:
@@ -20,33 +18,32 @@ from crypto import derive_vault_key
 def _aad(user_id, app_name):
     return f"{user_id}:{app_name}".encode("utf-8")
 
+
+#@login_required # this is when using session auth
 @bp.post("/register")
-# @login_required # this is when using session auth
 @jwt_required
 def register_credential():
     user = request.user
-    data = request.get_json(force=True, silent=True) or {}
-    app_name = (data.get("app_name") or "").strip()
-    app_login_url = (data.get("app_login_url") or "").strip()
-    password = data.get("password") or ""
-    master_password = data.get("master_password")
 
-    if not app_name or not password:
+    # Deserialize request body
+    body = RegisterCredentialBody(**(request.get_json(force=True, silent=True) or {}))
+
+    # Validate required fields
+    if not body.app_name or not body.password:
         return jsonify({"error": "app_name and password required"}), 400
-
-    if VaultEntry.query.filter_by(user_id=user.id, app_name=app_name).first():
-        return jsonify({"error": "app already exists"}), 409
-    
-    if not master_password:
+    if not body.master_password:
         return jsonify({"error": "master_password required"}), 400
 
-    vkey = derive_vault_key(master_password, user.kdf_salt)
-    nonce, blob = encrypt_pwd(vkey, password, _aad(user.id, app_name))
+    if VaultEntry.query.filter_by(user_id=user.id, app_name=body.app_name).first():
+        return jsonify({"error": "app already exists"}), 409
+
+    vkey = derive_vault_key(body.master_password, user.kdf_salt)
+    nonce, blob = encrypt_pwd(vkey, body.password, _aad(user.id, body.app_name))
 
     entry = VaultEntry(
         user_id=user.id,
-        app_name=app_name,
-        app_login_url=app_login_url or None,
+        app_name=body.app_name,
+        app_login_url=body.app_login_url or None,
         nonce=nonce,
         enc_password=blob,
     )
@@ -54,39 +51,102 @@ def register_credential():
     db.session.commit()
     return jsonify({"id": str(entry.id), "app_name": entry.app_name}), 201
 
+
 @bp.get("/list")
 @jwt_required
 def list_apps():
     user = request.user
-    rows = (VaultEntry.query
-            .with_entities(VaultEntry.app_name)
-            .filter_by(user_id=user.id)
-            .order_by(VaultEntry.app_name.asc())
-            .all())
-    return jsonify({"apps": [r.app_name for r in rows]})
+    rows = (
+        VaultEntry.query
+        .with_entities(VaultEntry.app_name, VaultEntry.id)
+        .filter_by(user_id=user.id)
+        .order_by(VaultEntry.created_at.asc())
+        .all()
+    )
+    print(rows[0])
+    response: VaultListResponse = {
+        "apps": [
+            {"name": r.app_name, "id": str(r.id)}
+            for r in rows
+        ]
+    }
+    return jsonify(response), 200
 
-@bp.get("/detail")
+
+@bp.get("/detail/<uuid:register_id>")
 @jwt_required
-def detail():
+def detail(register_id):
     user = request.user
-    app_name = (request.args.get("app") or "").strip()
-    if not app_name:
-        return jsonify({"error": "app query param required"}), 400
+    # app_name = (request.args.get("app") or "").strip()
+    # if not app_name:
+    #     return jsonify({"error": "app query param required"}), 400
 
-    entry = VaultEntry.query.filter_by(user_id=user.id, app_name=app_name).first()
+    entry = VaultEntry.query.filter_by(user_id=user.id, id=register_id).first()
     if not entry:
         return jsonify({"error": "not found"}), 404
-    
+
+    data = request.get_json(force=True, silent=True) or {}
+    if "master_password" not in data or not data["master_password"]:
+        return jsonify({"error": "master_password required"}), 400
+
+    vkey = derive_vault_key(data["master_password"], user.kdf_salt)
+    password = decrypt_pwd(vkey, entry.nonce, entry.enc_password, _aad(user.id, entry.app_name))
+
+    return jsonify({
+        "id": str(entry.id),
+        "app_name": entry.app_name,
+        "app_login_url": entry.app_login_url,
+        "password": password
+    }), 200
+
+
+@bp.put("/update/<uuid:register_id>")
+@jwt_required
+def update_credential(register_id):
+    user = request.user
     data = request.get_json(force=True, silent=True) or {}
     master_password = data.get("master_password")
     if not master_password:
         return jsonify({"error": "master_password required"}), 400
 
-    vkey = derive_vault_key(master_password, user.kdf_salt)
-    password = decrypt_pwd(vkey, entry.nonce, entry.enc_password, _aad(user.id, app_name))
+    # Fetch entry by ID, ensuring ownership
+    entry = VaultEntry.query.filter_by(id=register_id, user_id=user.id).first()
+    if not entry:
+        return jsonify({"error": "entry not found"}), 404
 
-    return jsonify({
-        "app_name": entry.app_name,
-        "app_login_url": entry.app_login_url,
-        "password": password
-    })
+    # Derive vault key to decrypt/re-encrypt
+    try:
+        vkey = derive_vault_key(master_password, user.kdf_salt)
+    except Exception:
+        return jsonify({"error": "invalid master_password"}), 401
+
+    # Update allowed fields if provided
+    updated = False
+
+    new_app_name = (data.get("app_name") or "").strip()
+    new_app_login_url = (data.get("app_login_url") or "").strip()
+    new_password = data.get("password")
+
+    # Validate unique app_name (if changed)
+    if new_app_name and new_app_name != entry.app_name:
+        exists = VaultEntry.query.filter_by(user_id=user.id, app_name=new_app_name).first()
+        if exists:
+            return jsonify({"error": "app_name already exists"}), 409
+        entry.app_name = new_app_name
+        updated = True
+
+    if new_app_login_url:
+        entry.app_login_url = new_app_login_url
+        updated = True
+
+    if new_password:
+        nonce, blob = encrypt_pwd(vkey, new_password, f"{user.id}:{entry.app_name}".encode())
+        entry.nonce = nonce
+        entry.enc_password = blob
+        updated = True
+
+    if not updated:
+        return jsonify({"message": "No fields updated"}), 200
+
+    db.session.commit()
+    return jsonify({"message": "Credential updated successfully"}), 200
