@@ -31,16 +31,10 @@ def signup():
         email_verified=True
     )
     db.session.add(user)
-    db.session.flush()  # get user.id
     db.session.commit()
-    
+
     return jsonify({"message": "signup ok"}), 201
-
-    # DEV ONLY: return the verification link so you can test quickly.
-    verify_url = f"/auth/verify?token={token_str}"
-    return jsonify({"message": "signup ok, verify email", "verify_url_dev": verify_url}), 201
-
-
+    
 @bp.get("/verify")
 def verify():
     token_str = request.args.get("token", "")
@@ -72,6 +66,7 @@ def login():
     except Exception:
         return jsonify({"error": "invalid credentials"}), 401
 
+    # Skip email verification check in development
     # if not user.email_verified:
     #     return jsonify({"error": "email not verified"}), 403
 
