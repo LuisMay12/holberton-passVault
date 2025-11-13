@@ -68,7 +68,6 @@ def list_apps():
         .order_by(VaultEntry.created_at.asc())
         .all()
     )
-    print(rows[0])
     response: VaultListResponse = {
         "apps": [
             {"name": r.app_name, "id": str(r.id)}
