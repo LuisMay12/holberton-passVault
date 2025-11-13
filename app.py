@@ -2,7 +2,7 @@ import os
 from flask import Flask
 from dotenv import load_dotenv
 from config import DevConfig, ProdConfig
-from extensions import db, migrate, server_session # login_manager, 
+from extensions import db, migrate, server_session, cors # login_manager,
 from models import User
 from flasgger import Swagger
 
