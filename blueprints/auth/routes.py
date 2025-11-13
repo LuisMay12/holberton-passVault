@@ -28,15 +28,13 @@ def signup():
         email=email,
         pw_hash_auth=hash_for_auth(master_password),
         kdf_salt=os.urandom(16),
-        email_verified=False
+        email_verified=True
     )
     db.session.add(user)
     db.session.flush()  # get user.id
-
-    token_str, expires_at = new_email_token()
-    token = EmailVerificationToken(user_id=user.id, token=token_str, expires_at=expires_at)
-    db.session.add(token)
     db.session.commit()
+    
+    return jsonify({"message": "signup ok"}), 201
 
     # DEV ONLY: return the verification link so you can test quickly.
     verify_url = f"/auth/verify?token={token_str}"
@@ -74,8 +72,8 @@ def login():
     except Exception:
         return jsonify({"error": "invalid credentials"}), 401
 
-    if not user.email_verified:
-        return jsonify({"error": "email not verified"}), 403
+    # if not user.email_verified:
+    #     return jsonify({"error": "email not verified"}), 403
 
     vkey = derive_vault_key(master_password, user.kdf_salt)
     session["vault_key_b64"] = base64.b64encode(vkey).decode("ascii")
