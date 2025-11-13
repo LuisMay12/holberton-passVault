@@ -16,6 +16,16 @@ def create_app():
     migrate.init_app(app, db)
     # login_manager.init_app(app)
     server_session.init_app(app)
+    
+    # Configure CORS for frontend
+    allowed_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
+    cors.init_app(app, resources={
+        r"/*": {
+            "origins": allowed_origins,
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"]
+        }
+    })
 
     # For session auth
     # @login_manager.user_loader
