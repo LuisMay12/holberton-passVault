@@ -25,8 +25,13 @@ def _aad(user_id, app_name):
 def register_credential():
     user = request.user
 
-    # Deserialize request body
-    body = RegisterCredentialBody(**(request.get_json(force=True, silent=True) or {}))
+    # Deserialize request body - only accept known fields
+    data = request.get_json(force=True, silent=True) or {}body = RegisterCredentialBody(
+        app_name=data.get("app_name", ""),
+        password=data.get("password", ""),
+        master_password=data.get("master_password", ""),
+        app_login_url=data.get("app_login_url")
+    )
 
     # Validate required fields
     if not body.app_name or not body.password:
