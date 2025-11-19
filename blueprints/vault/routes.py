@@ -26,7 +26,8 @@ def register_credential():
     user = request.user
 
     # Deserialize request body - only accept known fields
-    data = request.get_json(force=True, silent=True) or {}body = RegisterCredentialBody(
+    data = request.get_json(force=True, silent=True) or {}
+    body = RegisterCredentialBody(
         app_name=data.get("app_name", ""),
         password=data.get("password", ""),
         master_password=data.get("master_password", ""),
