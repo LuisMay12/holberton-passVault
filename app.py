@@ -2,7 +2,7 @@ import os
 from flask import Flask
 from dotenv import load_dotenv
 from config import DevConfig, ProdConfig
-from extensions import db, migrate, server_session, cors # login_manager,
+from extensions import db, migrate, cors # login_manager, server_session
 from models import User
 from flasgger import Swagger
 
@@ -15,7 +15,7 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
     # login_manager.init_app(app)
-    server_session.init_app(app)
+    # server_session.init_app(app)
     
     # Configure CORS for frontend
     allowed_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
