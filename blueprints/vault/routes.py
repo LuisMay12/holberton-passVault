@@ -87,114 +87,69 @@ def detail(register_id):
     if not entry:
         return jsonify({"error": "not found"}), 404
 
-    # data = request.get_json(force=True, silent=True) or {}
-    
-    # # If master_password is provided, decrypt and return password
-    # if "master_password" in data and data["master_password"]:
-    #     vkey = derive_vault_key(data["master_password"], user.kdf_salt)
-    #     password = decrypt_pwd(vkey, entry.nonce, entry.enc_password, _aad(user.id, entry.app_name))
-        # Return basic info without password (GET doesn't support body reliably)
-        return jsonify({
-            "id": str(entry.id),
-            "app_name": entry.app_name,
-            "app_login_url": entry.app_login_url,
-            # "password": password,
-            "created_at": entry.created_at.isoformat() if entry.created_at else None,
-            "updated_at": entry.updated_at.isoformat() if entry.updated_at else None,
-        }), 200
-    
-    # # Otherwise, return basic info without password
-    # return jsonify({
-    #     "id": str(entry.id),
-    #     "app_name": entry.app_name,
-    #     "app_login_url": entry.app_login_url,
-    #     "created_at": entry.created_at.isoformat() if entry.created_at else None,
-    #     "updated_at": entry.updated_at.isoformat() if entry.updated_at else None,
-    # }), 200
-
-@bp.post("/detail/<uuid:register_id>/reveal")
-@jwt_required
-def reveal_password(register_id):
-    """Reveal decrypted password using master password"""
-    user = request.user
-
-    entry = VaultEntry.query.filter_by(user_id=user.id, id=register_id).first()
-    if not entry:
-        return jsonify({"error": "not found"}), 404
-
     data = request.get_json(force=True, silent=True) or {}
-    master_password = data.get("master_password", "").strip()
     
-    if not master_password:
-        return jsonify({"error": "master_password required"}), 400
-
-    try:
-        vkey = derive_vault_key(master_password, user.kdf_salt)
+    # If master_password is provided, decrypt and return password
+    if "master_password" in data and data["master_password"]:
+        vkey = derive_vault_key(data["master_password"], user.kdf_salt)
         password = decrypt_pwd(vkey, entry.nonce, entry.enc_password, _aad(user.id, entry.app_name))
-        return jsonify({
-            "id": str(entry.id),
-            "app_name": entry.app_name,
-            "app_login_url": entry.app_login_url,
-            "password": password,
-            "created_at": entry.created_at.isoformat() if entry.created_at else None,
-            "updated_at": entry.updated_at.isoformat() if entry.updated_at else None,
-        }), 200
-    except Exception as e:
-        # Invalid master password or decryption error
-        return jsonify({"error": "invalid master password"}), 401
-
+    
+    # Otherwise, return basic info without password
+    return jsonify({
+        "id": str(entry.id),
+        "app_name": entry.app_name,
+        "app_login_url": entry.app_login_url,
+        "created_at": entry.created_at.isoformat() if entry.created_at else None,
+        "updated_at": entry.updated_at.isoformat() if entry.updated_at else None,
+    }), 200
 
 @bp.put("/update/<uuid:register_id>")
 @jwt_required
 def update_credential(register_id):
+    user = request.user
+    data = request.get_json(force=True, silent=True) or {}
+    master_password = data.get("master_password")
+    if not master_password:
+        return jsonify({"error": "master_password required"}), 400
 
-# @bp.put("/update/<uuid:register_id>")
-# @jwt_required
-# def update_credential(register_id):
-#     user = request.user
-#     data = request.get_json(force=True, silent=True) or {}
-#     master_password = data.get("master_password")
-#     if not master_password:
-#         return jsonify({"error": "master_password required"}), 400
+    # Fetch entry by ID, ensuring ownership
+    entry = VaultEntry.query.filter_by(id=register_id, user_id=user.id).first()
+    if not entry:
+        return jsonify({"error": "entry not found"}), 404
 
-#     # Fetch entry by ID, ensuring ownership
-#     entry = VaultEntry.query.filter_by(id=register_id, user_id=user.id).first()
-#     if not entry:
-#         return jsonify({"error": "entry not found"}), 404
+    # Derive vault key to decrypt/re-encrypt
+    try:
+        vkey = derive_vault_key(master_password, user.kdf_salt)
+    except Exception:
+        return jsonify({"error": "invalid master_password"}), 401
 
-#     # Derive vault key to decrypt/re-encrypt
-#     try:
-#         vkey = derive_vault_key(master_password, user.kdf_salt)
-#     except Exception:
-#         return jsonify({"error": "invalid master_password"}), 401
+    # Update allowed fields if provided
+    updated = False
 
-#     # Update allowed fields if provided
-#     updated = False
+    new_app_name = (data.get("app_name") or "").strip()
+    new_app_login_url = (data.get("app_login_url") or "").strip()
+    new_password = data.get("password")
 
-#     new_app_name = (data.get("app_name") or "").strip()
-#     new_app_login_url = (data.get("app_login_url") or "").strip()
-#     new_password = data.get("password")
+    # Validate unique app_name (if changed)
+    if new_app_name and new_app_name != entry.app_name:
+        exists = VaultEntry.query.filter_by(user_id=user.id, app_name=new_app_name).first()
+        if exists:
+            return jsonify({"error": "app_name already exists"}), 409
+        entry.app_name = new_app_name
+        updated = True
 
-#     # Validate unique app_name (if changed)
-#     if new_app_name and new_app_name != entry.app_name:
-#         exists = VaultEntry.query.filter_by(user_id=user.id, app_name=new_app_name).first()
-#         if exists:
-#             return jsonify({"error": "app_name already exists"}), 409
-#         entry.app_name = new_app_name
-#         updated = True
+    if new_app_login_url:
+        entry.app_login_url = new_app_login_url
+        updated = True
 
-#     if new_app_login_url:
-#         entry.app_login_url = new_app_login_url
-#         updated = True
+    if new_password:
+        nonce, blob = encrypt_pwd(vkey, new_password, f"{user.id}:{entry.app_name}".encode())
+        entry.nonce = nonce
+        entry.enc_password = blob
+        updated = True
 
-#     if new_password:
-#         nonce, blob = encrypt_pwd(vkey, new_password, f"{user.id}:{entry.app_name}".encode())
-#         entry.nonce = nonce
-#         entry.enc_password = blob
-#         updated = True
+    if not updated:
+        return jsonify({"message": "No fields updated"}), 200
 
-#     if not updated:
-#         return jsonify({"message": "No fields updated"}), 200
-
-#     db.session.commit()
-#     return jsonify({"message": "Credential updated successfully"}), 200
+    db.session.commit()
+    return jsonify({"message": "Credential updated successfully"}), 200
