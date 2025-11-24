@@ -91,10 +91,37 @@ def detail(register_id):
     
     # If master_password is provided, decrypt and return password
     if "master_password" in data and data["master_password"]:
-        vkey = derive_vault_key(data["master_password"], user.kdf_salt)
-        password = decrypt_pwd(vkey, entry.nonce, entry.enc_password, _aad(user.id, entry.app_name))
+        try:
+            vkey = derive_vault_key(data["master_password"], user.kdf_salt)
+            password = decrypt_pwd(vkey, entry.nonce, entry.enc_password, _aad(user.id, entry.app_name))
+            return jsonify({
+                "id": str(entry.id),
+                "app_name": entry.app_name,
+                "app_login_url": entry.app_login_url,
+                "password": password,
+                "created_at": entry.created_at.isoformat() if entry.created_at else None,
+                "updated_at": entry.updated_at.isoformat() if entry.updated_at else None,
+            }), 200
+        except Exception:
+            return jsonify({"error": "invalid master password"}), 401
     
     # Otherwise, return basic info without password
+    return jsonify({
+        "id": str(entry.id),
+        "app_name": entry.app_name,
+        "app_login_url": entry.app_login_url,
+        "created_at": entry.created_at.isoformat() if entry.created_at else None,
+        "updated_at": entry.updated_at.isoformat() if entry.updated_at else None,
+    }), 200
+
+    # data = request.get_json(force=True, silent=True) or {}
+    
+    # # If master_password is provided, decrypt and return password
+    # if "master_password" in data and data["master_password"]:
+    #     vkey = derive_vault_key(data["master_password"], user.kdf_salt)
+    #     password = decrypt_pwd(vkey, entry.nonce, entry.enc_password, _aad(user.id, entry.app_name))
+    
+    # # Otherwise, return basic info without password
     return jsonify({
         "id": str(entry.id),
         "app_name": entry.app_name,
