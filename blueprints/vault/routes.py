@@ -6,6 +6,7 @@ from blueprints.vault import bp
 from utils.jwt_config import jwt_required
 from crypto import derive_vault_key
 from blueprints.vault.schemes import RegisterCredentialBody, VaultListResponse
+from cryptography.exceptions import InvalidTag
 
 def _aad(user_id, app_name):
     return f"{user_id}:{app_name}".encode("utf-8")
@@ -106,12 +107,12 @@ def reveal_password(register_id):
         return jsonify({"error": "master_password required"}), 400
 
     try:
-        vkey = derive_vault_key(master_password, user.kdf_salt)
-        aad = _aad(user.id, entry.app_name)
-        
         # Verify we have the required data
         if not entry.nonce or not entry.enc_password:
             return jsonify({"error": "encrypted data missing"}), 500
+        
+        vkey = derive_vault_key(master_password, user.kdf_salt)
+        aad = _aad(user.id, entry.app_name)
         
         password = decrypt_pwd(vkey, entry.nonce, entry.enc_password, aad)
         
@@ -130,12 +131,15 @@ def reveal_password(register_id):
             "created_at": entry.created_at.isoformat() if entry.created_at else None,
             "updated_at": entry.updated_at.isoformat() if entry.updated_at else None,
         }), 200
-    except ValueError:
-        # Decryption failed - wrong master password
+    except InvalidTag:
+        # Decryption failed - wrong master password or corrupted data
         return jsonify({"error": "invalid master password"}), 401
     except Exception as e:
         # Other errors
-        return jsonify({"error": f"decryption error: {str(e)}"}), 500
+        import traceback
+        print(f"Error in reveal_password: {e}")
+        traceback.print_exc()
+        return jsonify({"error": "decryption failed - please check your master password"}), 500
 
 
 @bp.put("/update/<uuid:register_id>")
