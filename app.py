@@ -18,7 +18,7 @@ def create_app():
     # server_session.init_app(app)
     
     # Configure CORS for frontend
-    #allowed_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
+    allowed_origins = os.getenv(CORS_ORIGINS, "http://password-vault-frontend.vercel.app").split(",")
     cors.init_app(app, resources={
         r"/*": {
             "origins": "*",
