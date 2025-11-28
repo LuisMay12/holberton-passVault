@@ -21,7 +21,7 @@ def create_app():
     #allowed_origins = os.getenv(CORS_ORIGINS)
     cors.init_app(app, resources={
         r"/*": {
-            "origins": "*",
+            "origins": "password-vault-frontend.vercel.app",
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"]
         }
